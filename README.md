@@ -1,2 +1,3 @@
 # opencensus-go-exporter-agent
-OpenCensus Go exporters for hunter-agent
+
+This is an OpenCensus Go exporters for Hunter Agent.
