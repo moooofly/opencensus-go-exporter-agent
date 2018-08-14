@@ -18,8 +18,8 @@ import (
 )
 
 var DefaultTCPPort = 12345
-var DefaultTCPHost = "localhost"
-var DefaultTCPEndpoint = fmt.Sprintf("tcp://%s:%d", DefaultTCPHost, DefaultTCPPort)
+var DefaultTCPHost = "0.0.0.0"
+var DefaultTCPEndpoint = fmt.Sprintf("%s:%d", DefaultTCPHost, DefaultTCPPort)
 var DefaultUnixSocketEndpoint = "/var/run/hunter-agent.sock"
 
 // Exporter is an implementation of trace.Exporter that dump spans to Hunter agent.
@@ -32,10 +32,10 @@ type Exporter struct {
 
 var _ trace.Exporter = (*Exporter)(nil)
 
-// options are the options to be used when initializing the hunter agent exporter.
+// options are the options to be used when initializing the Hunter agent exporter.
 type options struct {
 	// Hunter agent addresses
-	addrs   []string
+	addrs   map[string]string
 	logger  *log.Logger
 	onError func(err error)
 
@@ -43,7 +43,8 @@ type options struct {
 }
 
 var defaultExporterOptions = options{
-	addrs:   []string{},
+	//addrs:   make(map[string]string, 2),
+	addrs:   map[string]string{"tcp": DefaultTCPEndpoint},
 	logger:  log.New(os.Stderr, "[hunter-agent-exporter] ", log.LstdFlags),
 	onError: nil,
 }
@@ -52,9 +53,14 @@ var defaultExporterOptions = options{
 type ExporterOption func(*options)
 
 // Logger sets the logger used to report errors.
-func Addrs(addrs []string) ExporterOption {
+func Addrs(addrs map[string]string) ExporterOption {
 	return func(o *options) {
-		o.addrs = addrs
+		if len(addrs) == 0 {
+			fmt.Printf("===> Use DefaultTCPEndpoint (%s)\n", DefaultTCPEndpoint)
+		}
+		for k, v := range addrs {
+			o.addrs[k] = v
+		}
 	}
 }
 
@@ -65,7 +71,7 @@ func Logger(logger *log.Logger) ExporterOption {
 	}
 }
 
-//
+// ErrFun sets xxx
 func ErrFun(errFun func(err error)) ExporterOption {
 	return func(o *options) {
 		o.onError = errFun
@@ -81,17 +87,23 @@ func NewExporter(opt ...ExporterOption) (*Exporter, error) {
 		o(&opts)
 	}
 
-	// Addrs should be :
-	// 1. TCP socket endpoint: tcp://<host>:<port>
-	// 2. Unix domain sockert endpoint: unix://</path/to/unix/sock>
+	// NOTE: unix domain socket is preferred
+	var preferred string
+	if tcpAddr, ok := opts.addrs["tcp"]; ok {
+		preferred = tcpAddr
+	}
+	if unixAddr, ok := opts.addrs["unix"]; ok {
+		preferred = unixAddr
+	}
 
-	// FIXME:
-	conn, err := grpc.Dial(DefaultUnixSocketEndpoint, grpc.WithInsecure())
+	fmt.Println("===> preferred:", preferred)
+
+	// FIXME: need to reconnect?
+	conn, err := grpc.Dial(preferred, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
 
-	//client := dumpproto.NewDumpClient(conn)
 	clientStream, err := dumpproto.NewDumpClient(conn).ExportSpan(context.Background())
 	if err != nil {
 		return nil, err
@@ -113,7 +125,7 @@ func (e *Exporter) onError(err error) {
 	log.Printf("Exporter fail: %v", err)
 }
 
-// ExportSpan exports a span to hunter agent.
+// ExportSpan exports a span to Hunter agent.
 func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 
 	e.lock.Lock()
@@ -155,7 +167,7 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 		Spans: []*traceproto.Span{s},
 	}); err != nil {
 		if err == io.EOF {
-			e.opts.logger.Println("Connection is unavailable; will try to reconnect in a minute")
+			e.opts.logger.Println("Connection is unavailable, LOST current Span...")
 			e.deleteClient()
 		} else {
 			e.opts.onError(err)
