@@ -13,8 +13,8 @@ import (
 	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 
+	"github.com/census-instrumentation/opencensus-proto/gen-go/exporterproto"
 	"github.com/census-instrumentation/opencensus-proto/gen-go/traceproto"
-	"github.com/moooofly/opencensus-go-exporter-agent/gen-go/dumpproto"
 )
 
 var DefaultTCPPort = 12345
@@ -22,12 +22,12 @@ var DefaultTCPHost = "0.0.0.0"
 var DefaultTCPEndpoint = fmt.Sprintf("%s:%d", DefaultTCPHost, DefaultTCPPort)
 var DefaultUnixSocketEndpoint = "/var/run/hunter-agent.sock"
 
-// Exporter is an implementation of trace.Exporter that dump spans to Hunter agent.
+// Exporter is an implementation of trace.Exporter that export spans to Hunter agent.
 type Exporter struct {
 	opts options
 
-	lock       sync.Mutex
-	dumpClient dumpproto.Dump_ExportSpanClient
+	lock         sync.Mutex
+	exportClient exporterproto.Export_ExportSpanClient
 }
 
 var _ trace.Exporter = (*Exporter)(nil)
@@ -78,7 +78,7 @@ func ErrFun(errFun func(err error)) ExporterOption {
 	}
 }
 
-// NewExporter returns an implementation of trace.Exporter that dumps spans
+// NewExporter returns an implementation of trace.Exporter that exports spans
 // to Hunter agent.
 func NewExporter(opt ...ExporterOption) (*Exporter, error) {
 
@@ -104,14 +104,14 @@ func NewExporter(opt ...ExporterOption) (*Exporter, error) {
 		return nil, err
 	}
 
-	clientStream, err := dumpproto.NewDumpClient(conn).ExportSpan(context.Background())
+	clientStream, err := exporterproto.NewExportClient(conn).ExportSpan(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
 	e := &Exporter{
-		opts:       opts,
-		dumpClient: clientStream,
+		opts:         opts,
+		exportClient: clientStream,
 	}
 
 	return e, nil
@@ -129,10 +129,10 @@ func (e *Exporter) onError(err error) {
 func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 
 	e.lock.Lock()
-	dumpClient := e.dumpClient
+	exportClient := e.exportClient
 	e.lock.Unlock()
 
-	if dumpClient == nil {
+	if exportClient == nil {
 		return
 	}
 
@@ -163,7 +163,7 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 	}
 
 	// FIXME: actually the code below send one item a time only.
-	if err := dumpClient.Send(&dumpproto.DumpSpanRequest{
+	if err := exportClient.Send(&exporterproto.ExportSpanRequest{
 		Spans: []*traceproto.Span{s},
 	}); err != nil {
 		if err == io.EOF {
@@ -177,6 +177,6 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 
 func (e *Exporter) deleteClient() {
 	e.lock.Lock()
-	e.dumpClient = nil
+	e.exportClient = nil
 	e.lock.Unlock()
 }

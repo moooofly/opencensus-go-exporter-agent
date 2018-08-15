@@ -7,4 +7,4 @@
 
 OUTDIR="$(go env GOPATH)/src"
 
-protoc -I=. --go_out=plugins=grpc:$OUTDIR proto/dump.proto
+protoc -I=. --go_out=plugins=grpc:$OUTDIR opencensus/proto/exporter/exporter.proto
