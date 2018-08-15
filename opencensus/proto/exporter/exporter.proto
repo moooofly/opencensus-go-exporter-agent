@@ -1,4 +1,4 @@
-// Copyright 2018, Hunter Authors
+// Copyright 2018, OpenCensus Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,32 +14,35 @@
 
 syntax = "proto3";
 
-package hunter.proto.dump;
+// NOTE: This proto is experimental and is subject to change at this point.
+// Please do not use it at the moment.
+
+package opencensus.proto.exporter;
 
 import "opencensus/proto/trace/trace.proto";
 import "opencensus/proto/metrics/metrics.proto";
 
 option java_multiple_files = true;
-option java_package = "io.hunter.proto.dump";
-option java_outer_classname = "DumpProto";
+option java_package = "io.opencensus.proto.exporter";
+option java_outer_classname = "ExporterProto";
 
-option go_package = "github.com/moooofly/opencensus-go-exporter-agent/gen-go/dumpproto";
+option go_package = "github.com/census-instrumentation/opencensus-proto/gen-go/exporterproto";
 
-message DumpSpanRequest {
+message ExportSpanRequest {
   repeated opencensus.proto.trace.Span spans = 1;
 }
 
-message DumpSpanResponse {
+message ExportSpanResponse {
 }
 
-message DumpMetricsRequest {
+message ExportMetricsRequest {
   repeated opencensus.proto.metrics.Metric metrics = 1;
 }
 
-message DumpMetricsResponse {
+message ExportMetricsResponse {
 }
 
-service Dump {
-  rpc ExportSpan (stream DumpSpanRequest) returns (stream DumpSpanResponse) {}
-  rpc ExportMetrics (stream DumpMetricsRequest) returns (stream DumpMetricsResponse) {}
+service Export {
+  rpc ExportSpan (stream ExportSpanRequest) returns (stream ExportSpanResponse) {}
+  rpc ExportMetrics (stream ExportMetricsRequest) returns (stream ExportMetricsResponse) {}
 }
