@@ -47,7 +47,7 @@ func main() {
 		//agent.Logger(logger),
 	)
 	if err != nil {
-		logger.Println("err:", err)
+		logger.Println(err)
 		os.Exit(1)
 	}
 

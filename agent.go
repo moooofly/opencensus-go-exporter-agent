@@ -3,11 +3,14 @@ package agent // import "github.com/moooofly/opencensus-go-exporter-agent"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.opencensus.io/trace"
@@ -17,16 +20,18 @@ import (
 	"github.com/census-instrumentation/opencensus-proto/gen-go/traceproto"
 )
 
-var DefaultTCPPort = 12345
-var DefaultTCPHost = "0.0.0.0"
+const DefaultUnixSocketEndpoint = "/var/run/hunter-agent.sock"
+const DefaultTCPPort = 12345
+const DefaultTCPHost = "0.0.0.0"
+
 var DefaultTCPEndpoint = fmt.Sprintf("%s:%d", DefaultTCPHost, DefaultTCPPort)
-var DefaultUnixSocketEndpoint = "/var/run/hunter-agent.sock"
 
 // Exporter is an implementation of trace.Exporter that export spans to Hunter agent.
 type Exporter struct {
-	opts options
+	*options
 
 	lock         sync.Mutex
+	clientConn   *grpc.ClientConn
 	exportClient exporterproto.Export_ExportSpanClient
 }
 
@@ -34,7 +39,7 @@ var _ trace.Exporter = (*Exporter)(nil)
 
 // options are the options to be used when initializing the Hunter agent exporter.
 type options struct {
-	// Hunter agent addresses
+	// Hunter agent listening address
 	addrs   map[string]string
 	logger  *log.Logger
 	onError func(err error)
@@ -43,8 +48,10 @@ type options struct {
 }
 
 var defaultExporterOptions = options{
-	//addrs:   make(map[string]string, 2),
-	addrs:   map[string]string{"tcp": DefaultTCPEndpoint},
+	addrs: map[string]string{
+		"tcp": DefaultTCPEndpoint,
+		//"unix": DefaultUnixSocketEndpoint,
+	},
 	logger:  log.New(os.Stderr, "[hunter-agent-exporter] ", log.LstdFlags),
 	onError: nil,
 }
@@ -55,9 +62,6 @@ type ExporterOption func(*options)
 // Logger sets the logger used to report errors.
 func Addrs(addrs map[string]string) ExporterOption {
 	return func(o *options) {
-		if len(addrs) == 0 {
-			fmt.Printf("===> Use DefaultTCPEndpoint (%s)\n", DefaultTCPEndpoint)
-		}
 		for k, v := range addrs {
 			o.addrs[k] = v
 		}
@@ -89,17 +93,24 @@ func NewExporter(opt ...ExporterOption) (*Exporter, error) {
 
 	// NOTE: unix domain socket is preferred
 	var preferred string
-	if tcpAddr, ok := opts.addrs["tcp"]; ok {
-		preferred = tcpAddr
+	if _, ok := opts.addrs["tcp"]; ok {
+		preferred = "tcp"
 	}
-	if unixAddr, ok := opts.addrs["unix"]; ok {
-		preferred = unixAddr
+	if _, ok := opts.addrs["unix"]; ok {
+		preferred = "unix"
 	}
 
-	fmt.Println("===> preferred:", preferred)
+	if preferred == "" {
+		return nil, errors.New("find no addrs")
+	}
+
+	log.Println("===> preferred:", opts.addrs[preferred])
 
 	// FIXME: need to reconnect?
-	conn, err := grpc.Dial(preferred, grpc.WithInsecure())
+	conn, err := grpc.Dial(opts.addrs[preferred], grpc.WithInsecure(), grpc.WithTimeout(10*time.Second),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout(preferred, addr, timeout)
+		}))
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +121,8 @@ func NewExporter(opt ...ExporterOption) (*Exporter, error) {
 	}
 
 	e := &Exporter{
-		opts:         opts,
+		options:      &opts,
+		clientConn:   conn,
 		exportClient: clientStream,
 	}
 
@@ -118,11 +130,11 @@ func NewExporter(opt ...ExporterOption) (*Exporter, error) {
 }
 
 func (e *Exporter) onError(err error) {
-	if e.opts.onError != nil {
-		e.opts.onError(err)
+	if e.onError != nil {
+		e.onError(err)
 		return
 	}
-	log.Printf("Exporter fail: %v", err)
+	e.logger.Printf("Exporter fail: %v", err)
 }
 
 // ExportSpan exports a span to Hunter agent.
@@ -139,10 +151,10 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 	// NOTE: do batch procession here, if need
 
 	// NOTE: the code below outputs too much
-	// e.opts.logger.Printf("Current trace.SpanData: \n%#v\n", *sd)
+	// e.logger.Printf("Current trace.SpanData: \n%#v\n", *sd)
 
-	e.opts.logger.Printf("[%s] SpanContext.TraceID: %s\n", sd.Name, sd.SpanContext.TraceID.String())
-	e.opts.logger.Printf("[%s] SpanContext.SpanID: %s\n", sd.Name, sd.SpanContext.SpanID.String())
+	e.logger.Printf("[%s] SpanContext.TraceID: %s\n", sd.Name, sd.SpanContext.TraceID.String())
+	e.logger.Printf("[%s] SpanContext.SpanID: %s\n", sd.Name, sd.SpanContext.SpanID.String())
 
 	s := &traceproto.Span{
 		TraceId:      sd.SpanContext.TraceID[:],
@@ -151,6 +163,7 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 		Name: &traceproto.TruncatableString{
 			Value: sd.Name,
 		},
+		Kind: traceproto.Span_CLIENT,
 		StartTime: &timestamp.Timestamp{
 			Seconds: sd.StartTime.Unix(),
 			Nanos:   int32(sd.StartTime.Nanosecond()),
@@ -160,6 +173,11 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 			Nanos:   int32(sd.EndTime.Nanosecond()),
 		},
 		// TODO: Add attributes and others.
+		Attributes: &traceproto.Span_Attributes{},
+		StackTrace: &traceproto.StackTrace{},
+		TimeEvents: &traceproto.Span_TimeEvents{},
+		Links:      &traceproto.Span_Links{},
+		Status:     &traceproto.Status{},
 	}
 
 	// FIXME: actually the code below send one item a time only.
@@ -167,16 +185,17 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 		Spans: []*traceproto.Span{s},
 	}); err != nil {
 		if err == io.EOF {
-			e.opts.logger.Println("Connection is unavailable, LOST current Span...")
-			e.deleteClient()
+			e.logger.Println("Connection is unavailable, LOST current Span...")
+			e.Stop()
 		} else {
-			e.opts.onError(err)
+			e.onError(err)
 		}
 	}
 }
 
-func (e *Exporter) deleteClient() {
+func (e *Exporter) Stop() {
 	e.lock.Lock()
+	e.clientConn.Close()
 	e.exportClient = nil
 	e.lock.Unlock()
 }
