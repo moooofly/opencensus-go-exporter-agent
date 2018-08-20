@@ -148,22 +148,16 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 		return
 	}
 
-	// NOTE: do batch procession here, if need
-
-	// NOTE: the code below outputs too much
-	// e.logger.Printf("Current trace.SpanData: \n%#v\n", *sd)
-
 	e.logger.Printf("[%s] SpanContext.TraceID: %s\n", sd.Name, sd.SpanContext.TraceID.String())
 	e.logger.Printf("[%s] SpanContext.SpanID: %s\n", sd.Name, sd.SpanContext.SpanID.String())
 
 	s := &traceproto.Span{
-		TraceId:      sd.SpanContext.TraceID[:],
-		SpanId:       sd.SpanContext.SpanID[:],
-		ParentSpanId: sd.ParentSpanID[:],
+		TraceId: sd.SpanContext.TraceID[:],
+		SpanId:  sd.SpanContext.SpanID[:],
 		Name: &traceproto.TruncatableString{
 			Value: sd.Name,
 		},
-		Kind: traceproto.Span_CLIENT,
+		Kind: spanKind(sd),
 		StartTime: &timestamp.Timestamp{
 			Seconds: sd.StartTime.Unix(),
 			Nanos:   int32(sd.StartTime.Nanosecond()),
@@ -172,13 +166,25 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 			Seconds: sd.EndTime.Unix(),
 			Nanos:   int32(sd.EndTime.Nanosecond()),
 		},
-		// TODO: Add attributes and others.
-		Attributes: &traceproto.Span_Attributes{},
-		StackTrace: &traceproto.StackTrace{},
-		TimeEvents: &traceproto.Span_TimeEvents{},
-		Links:      &traceproto.Span_Links{},
-		Status:     &traceproto.Status{},
+		Attributes: convertToAttributes(sd.Attributes),
+		//StackTrace: &traceproto.StackTrace{},
+		TimeEvents: convertToTimeEvents(sd.Annotations, sd.MessageEvents),
+		//Links:      &traceproto.Span_Links{},
+		Status: &traceproto.Status{
+			Code:    sd.Code,
+			Message: sd.Message,
+		},
 	}
+
+	if sd.ParentSpanID != (trace.SpanID{}) {
+		s.ParentSpanId = make([]byte, 8)
+		copy(s.ParentSpanId, sd.ParentSpanID[:])
+		e.logger.Printf("[%s] s.ParentSpanId: %s   sd.ParentSpanID: %s\n", sd.Name, fmt.Sprintf("%02x", s.ParentSpanId[:]), sd.ParentSpanID.String())
+	}
+
+	//e.logger.Printf("[%s] spankind: %s\n", sd.Name, s.GetKind().String())
+
+	// NOTE: do batch procession here, if need
 
 	// FIXME: actually the code below send one item a time only.
 	if err := exportClient.Send(&exporterproto.ExportSpanRequest{
@@ -198,4 +204,87 @@ func (e *Exporter) Stop() {
 	e.clientConn.Close()
 	e.exportClient = nil
 	e.lock.Unlock()
+}
+
+func convertToAttributes(tags map[string]interface{}) *traceproto.Span_Attributes {
+	attributes := &traceproto.Span_Attributes{
+		AttributeMap: make(map[string]*traceproto.AttributeValue),
+	}
+
+	for k, i := range tags {
+		switch v := i.(type) {
+		case string:
+			attributes.AttributeMap[k] = &traceproto.AttributeValue{
+				Value: &traceproto.AttributeValue_StringValue{
+					StringValue: &traceproto.TruncatableString{
+						Value: v,
+					},
+				},
+			}
+		case bool:
+			attributes.AttributeMap[k] = &traceproto.AttributeValue{
+				Value: &traceproto.AttributeValue_BoolValue{
+					BoolValue: v,
+				},
+			}
+		case int64:
+			attributes.AttributeMap[k] = &traceproto.AttributeValue{
+				Value: &traceproto.AttributeValue_IntValue{
+					IntValue: int64(v),
+				},
+			}
+		default:
+			fmt.Printf("unknown tag value type:%v, ignored\n", v)
+		}
+	}
+
+	return attributes
+}
+
+func convertToTimeEvents(as []trace.Annotation, ms []trace.MessageEvent) *traceproto.Span_TimeEvents {
+	timeEvents := &traceproto.Span_TimeEvents{
+		TimeEvent: make([]*traceproto.Span_TimeEvent, 0, 10),
+	}
+	for _, a := range as {
+		timeEvents.TimeEvent = append(timeEvents.TimeEvent,
+			&traceproto.Span_TimeEvent{
+				Time:  &timestamp.Timestamp{Seconds: a.Time.Unix(), Nanos: int32(a.Time.UnixNano())},
+				Value: convertAnnoationToTimeEvent(a.Attributes),
+			},
+		)
+	}
+	for _, m := range ms {
+		timeEvents.TimeEvent = append(timeEvents.TimeEvent,
+			&traceproto.Span_TimeEvent{
+				Time:  &timestamp.Timestamp{Seconds: m.Time.Unix(), Nanos: int32(m.Time.UnixNano())},
+				Value: convertMessageEventToTimeEvent(&m),
+			},
+		)
+	}
+	return timeEvents
+}
+
+func convertAnnoationToTimeEvent(annotations map[string]interface{}) *traceproto.Span_TimeEvent_Annotation_ {
+	teAnnotation := &traceproto.Span_TimeEvent_Annotation_{
+		Annotation: &traceproto.Span_TimeEvent_Annotation{
+			Description: &traceproto.TruncatableString{
+				Value: "user supplied log",
+			},
+			Attributes: convertToAttributes(annotations),
+		},
+	}
+	return teAnnotation
+}
+func convertMessageEventToTimeEvent(m *trace.MessageEvent) *traceproto.Span_TimeEvent_MessageEvent_ {
+	return nil
+}
+
+func spanKind(s *trace.SpanData) traceproto.Span_SpanKind {
+	switch s.SpanKind {
+	case trace.SpanKindClient:
+		return trace.SpanKindClient
+	case trace.SpanKindServer:
+		return trace.SpanKindServer
+	}
+	return trace.SpanKindUnspecified
 }
