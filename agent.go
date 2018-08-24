@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 
@@ -197,6 +198,11 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 			e.onError(err)
 		}
 	}
+}
+
+// ExportView logs the view data.
+func (e *Exporter) ExportView(vd *view.Data) {
+	log.Println("---> ExportView:", vd)
 }
 
 func (e *Exporter) Stop() {
