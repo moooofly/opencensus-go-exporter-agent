@@ -1,1 +1,3 @@
 main
+grpc_client
+grpc_server

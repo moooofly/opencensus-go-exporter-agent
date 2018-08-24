@@ -14,7 +14,13 @@ unix: build
 	./main -unix_sock_addr unix:///var/run/hunter-agent.sock
 
 build:
-	go build example/main.go
+	go build -o main example/local_example/main.go
+
+build_grpc:
+	go build -o grpc_client example/grpc_example/helloworld_client/main.go
+	go build -o grpc_server example/grpc_example/helloworld_server/main.go
 
 clean:
 	rm -f main
+	rm -f grpc_client
+	rm -f grpc_server
