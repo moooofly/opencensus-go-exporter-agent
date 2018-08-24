@@ -1,3 +1,14 @@
+<a name="0.5.0"></a>
+# [0.5.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.4.0...v0.5.0) (2018-08-24)
+
+
+### Features
+
+* **example:** add real grpc service call-chain example ([edb2969](https://github.com/moooofly/opencensus-go-exporter-agent/commit/edb2969))
+* make agent fit for both trace exporter and view exporter ([87bae0b](https://github.com/moooofly/opencensus-go-exporter-agent/commit/87bae0b))
+
+
+
 <a name="0.4.0"></a>
 # [0.4.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.3.0...v0.4.0) (2018-08-20)
 
