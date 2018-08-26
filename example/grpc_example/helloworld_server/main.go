@@ -1,17 +1,3 @@
-// Copyright 2017, OpenCensus Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //go:generate protoc -I ../proto --go_out=plugins=grpc:../proto ../proto/helloworld.proto
 
 package main
@@ -37,10 +23,17 @@ import (
 
 const port = ":50051"
 
-// FIXME: hardcode
 var (
+	// NOTE: should obtain this from $HOST_IP env
 	tcpAddr      = "tcp://0.0.0.0:12345"
 	unixsockAddr = "unix:///var/run/hunter-agent.sock"
+
+	// NOTE: should obtain this from $HOSTNAME env
+	hostname = "fake-server-hostname"
+
+	// obtain service_name from config file
+	fakeconfig  = "config.fake"
+	serviceName = agent.ConfigRead(fakeconfig, "cluster")
 )
 
 // server is used to implement helloworld.GreeterServer.
@@ -103,19 +96,18 @@ func main() {
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-
 	info := &ocgrpc.CustomInfo{
-		"helloworld-server-grpc",
-		"GetUserProfile",
-		"grpc",
-		int64(123456),
-		"web",
+		ServiceName: "helloworld-server" + "-" + serviceName,
+		MethodName:  "GetUserProfile",
+		RemoteKind:  "grpc",
+		UID:         int64(123456),
+		Source:      "web",
+		HostName:    hostname,
 	}
 	sh := ocgrpc.NewServerHandler(info)
 	sh.IsPublicEndpoint = false
 	sh.StartOptions.Sampler = trace.AlwaysSample()
 	s := grpc.NewServer(grpc.StatsHandler(sh))
-	//s := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	pb.RegisterGreeterServer(s, &server{})
 
 	if err := s.Serve(lis); err != nil {
