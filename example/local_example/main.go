@@ -28,10 +28,19 @@ const (
 )
 
 var (
-	tcpAddr = flag.String("tcp_addr", os.Getenv("AGENT_TCP_ADDR"),
+	// NOTE: should obtain this from $HOST_IP env
+	//tcpAddr = flag.String("tcp_addr", os.Getenv("AGENT_TCP_ADDR"),
+	tcpAddr = flag.String("tcp_addr", os.Getenv("HOST_IP"),
 		"The TCP endport of Hunter agent, can also set with AGENT_TCP_ADDR env. (Format: tcp://<host>:<port>)")
 	unixsockAddr = flag.String("unix_sock_addr", os.Getenv("AGENT_UNIX_ADDR"),
 		"The Unix endpoint of Hunter agent, can also set with AGENT_UNIX_ADDR env. (Format: unix:///<path-to-unix-domain>)")
+
+	// NOTE: should obtain this from $HOSTNAME env
+	hostName = flag.String("hostname", os.Getenv("HOSTNAME"), "As an Attribute of span.")
+
+	// obtain service_name from config file
+	fakeconfig  = "config.fake"
+	serviceName = agent.ConfigRead(fakeconfig, "cluster")
 )
 
 var logger *log.Logger = log.New(os.Stderr, "[example] ", log.LstdFlags)
@@ -81,16 +90,18 @@ func main() {
 func simulate_neo_api(ctx context.Context) {
 	ctx, span := trace.StartSpan(ctx,
 		"/simulate_neo_api",
+		// FIXME: why?
 		//trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithSpanKind(trace.SpanKindServer),
 	)
 	logger.Println("simulate_neo_api ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
 	span.SetName("/api/user/:uid/profile")
 	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_HTTP))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
+	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-1"))
 
 	span.Annotate([]trace.Attribute{
 		trace.StringAttribute("query", "/api/user/123456/profile?from=web&version=1.0.1..."),
@@ -111,11 +122,12 @@ func simulate_grpc_client(ctx context.Context) {
 	logger.Println("  simulate_grpc_client ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
 	span.SetName("GetUserProfile")
 	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_GRPC))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
+	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-1"))
 
 	span.SetStatus(trace.Status{Code: int32(4), Message: "DeadlineExceeded"})
 
@@ -131,11 +143,12 @@ func simulate_grpc_server(ctx context.Context) {
 	logger.Println("    simulate_grpc_server ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "user-svc-my"))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "user-svc-my"+"-"+serviceName))
 	span.SetName("GetUserProfile")
 	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_GRPC))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
+	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-2"))
 
 	span.SetStatus(trace.Status{Code: int32(0), Message: "ok"})
 
@@ -151,11 +164,12 @@ func simulate_grpc_server_call_mysql(ctx context.Context) {
 	logger.Println("    simulate_grpc_server_call_mysql ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "user-svc-my"))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "user-svc-my"+"-"+serviceName))
 	span.SetName("select")
 	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_MYSQL))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "grpc"))
+	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-2"))
 
 	span.Annotate([]trace.Attribute{
 		trace.StringAttribute("query", "select * from user where uid=123456"),
@@ -174,11 +188,12 @@ func simulate_neo_api_call_mysql(ctx context.Context) {
 	logger.Println("  simulate_neo_api_call_mysql ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
 	span.SetName("select")
 	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_MYSQL))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
+	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-1"))
 
 	span.Annotate([]trace.Attribute{
 		trace.StringAttribute("query", "select * from profile where uid=123456"),
@@ -197,12 +212,13 @@ func simulate_neo_api_call_redis(ctx context.Context) {
 	logger.Println("  simulate_neo_api_call_redis ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
 	span.SetName("mget")
 	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_REDIS))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
 	span.AddAttributes(trace.Int64Attribute("count", int64(1000)))
+	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-1"))
 
 	span.Annotate([]trace.Attribute{
 		trace.StringAttribute("query", "mget 1,2,3,4..."),

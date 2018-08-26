@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +22,8 @@ import (
 	"github.com/census-instrumentation/opencensus-proto/gen-go/exporterproto"
 	"github.com/census-instrumentation/opencensus-proto/gen-go/traceproto"
 )
+
+const DefaultConfigPath = "/etc/podinfo/labels"
 
 const DefaultUnixSocketEndpoint = "/var/run/hunter-agent.sock"
 const DefaultTCPPort = 12345
@@ -293,4 +297,28 @@ func spanKind(s *trace.SpanData) traceproto.Span_SpanKind {
 		return trace.SpanKindServer
 	}
 	return trace.SpanKindUnspecified
+}
+
+// configRead reads value by specific config key
+func ConfigRead(path string, key string) string {
+	if path == "" {
+		path = DefaultConfigPath
+	}
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Println("--> find no file: ", path)
+		return ""
+	}
+
+	content := string(b)
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		kv := strings.Split(line, "=")
+		if kv[0] == key {
+			log.Printf("--> match key[%s], value is: %s\n", key, kv[1])
+			return strings.Trim(kv[1], "\"")
+		}
+	}
+	return ""
 }
