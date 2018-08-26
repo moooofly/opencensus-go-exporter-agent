@@ -3,29 +3,32 @@
 This example uses:
 
 * gRPC to create an RPC server and client.
-* The OpenCensus gRPC plugin to instrument the RPC server and client.
-* Debugging exporters to print stats and traces to stdout.
+* The **modified** OpenCensus gRPC plugin (ocgrpc) to instrument the RPC server and client.
+* Use `opencensus-go-exporter-agent` exporter to output stats and traces to Hunter agent.
+
+## Usage
+
+- download
 
 ```
-$ go get go.opencensus.io/examples/grpc/...
+$ go get github.com/moooofly/opencensus-go-exporter-agent
 ```
 
-First, run the server:
+- build
 
 ```
-$ go run $(go env GOPATH)/src/go.opencensus.io/examples/grpc/helloworld_server/main.go
+make clean && make build_grpc
 ```
 
-Then, run the client:
+- run the server
 
 ```
-$ go run $(go env GOPATH)/src/go.opencensus.io/examples/grpc/helloworld_client/main.go
+./grpc_server
 ```
 
-You will see traces and stats exported on the stdout. You can use one of the
-[exporters](https://godoc.org/go.opencensus.io/exporter)
-to upload collected data to the backend of your choice.
+- run the client
 
-You can also see the z-pages provided from the server:
-* Traces: http://localhost:8081/debug/tracez
-* RPCs: http://localhost:8081/debug/rpcz
+```
+./grpc_client
+```
+
