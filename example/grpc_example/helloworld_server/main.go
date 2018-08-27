@@ -3,6 +3,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"math/rand"
 	"net"
@@ -21,19 +22,25 @@ import (
 	"google.golang.org/grpc"
 )
 
-const port = ":50051"
-
 var (
+	grpcServerListenPort = flag.String("grpc_server_listen_port", "", "Default gPRC server listen port.")
+
 	// NOTE: should obtain this from $HOST_IP env
-	tcpAddr      = "tcp://0.0.0.0:12345"
-	unixsockAddr = "unix:///var/run/hunter-agent.sock"
+	tcpAddr = flag.String("agent_tcp_addr", os.Getenv("HOST_IP"),
+		"The TCP endport of Hunter agent, can also set with AGENT_TCP_ADDR env. (Format: tcp://<host>:<port>)")
+
+	unixsockAddr = flag.String("agent_unix_addr", os.Getenv("AGENT_UNIX_ADDR"),
+		"The Unix endpoint of Hunter agent, can also set with AGENT_UNIX_ADDR env. (Format: unix:///<path-to-unix-domain>)")
 
 	// NOTE: should obtain this from $HOSTNAME env
-	hostname = "fake-server-hostname"
+	hostname = flag.String("hostname", os.Getenv("HOSTNAME"), "As an Attribute of span.")
+)
+
+var (
+	defaultTCPListenPort = "50051"
 
 	// obtain service_name from config file
-	fakeconfig  = "config.fake"
-	serviceName = agent.ConfigRead(fakeconfig, "cluster")
+	fakeconfig = "config.fake"
 )
 
 // server is used to implement helloworld.GreeterServer.
@@ -58,6 +65,13 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 }
 
 func main() {
+	flag.Parse()
+
+	if *tcpAddr == "" && *unixsockAddr == "" {
+		flag.Usage()
+		os.Exit(0)
+	}
+
 	// Start z-Pages server.
 	go func() {
 		mux := http.NewServeMux()
@@ -66,8 +80,8 @@ func main() {
 	}()
 
 	addrs := make(map[string]string, 2)
-	addrs["tcp"] = strings.TrimPrefix(tcpAddr, "tcp://")
-	addrs["unix"] = strings.TrimPrefix(unixsockAddr, "unix://")
+	addrs["tcp"] = strings.TrimPrefix(*tcpAddr, "tcp://")
+	//addrs["unix"] = strings.TrimPrefix(*unixsockAddr, "unix://")
 
 	exporter, err := agent.NewExporter(
 		agent.Addrs(addrs),
@@ -89,7 +103,14 @@ func main() {
 
 	view.SetReportingPeriod(15 * time.Second)
 
-	lis, err := net.Listen("tcp", port)
+	var addr string
+	if *grpcServerListenPort == "" {
+		addr = "0.0.0.0:" + defaultTCPListenPort
+	} else {
+		addr = "0.0.0.0:" + *grpcServerListenPort
+	}
+
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
@@ -97,12 +118,12 @@ func main() {
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
 	info := &ocgrpc.CustomInfo{
-		ServiceName: "helloworld-server" + "-" + serviceName,
+		ServiceName: "helloworld-server" + "-" + agent.ConfigRead(fakeconfig, "cluster"),
 		MethodName:  "GetUserProfile",
 		RemoteKind:  "grpc",
 		UID:         int64(123456),
 		Source:      "web",
-		HostName:    hostname,
+		HostName:    *hostname,
 	}
 	sh := ocgrpc.NewServerHandler(info)
 	sh.IsPublicEndpoint = false
