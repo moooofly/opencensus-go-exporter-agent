@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"strings"
@@ -15,29 +16,39 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	address     = "localhost:50051"
-	defaultName = "world"
+var (
+	grpcServerListenAddr = flag.String("grpc_server_listen_addr", "", "Default gPRC server listen addr.")
+
+	// NOTE: should obtain this from $HOST_IP env
+	tcpAddr = flag.String("agent_tcp_addr", os.Getenv("HOST_IP"),
+		"The TCP endport of Hunter agent, can also set with AGENT_TCP_ADDR env. (Format: tcp://<host>:<port>)")
+
+	unixsockAddr = flag.String("agent_unix_addr", os.Getenv("AGENT_UNIX_ADDR"),
+		"The Unix endpoint of Hunter agent, can also set with AGENT_UNIX_ADDR env. (Format: unix:///<path-to-unix-domain>)")
+
+	// NOTE: should obtain this from $HOSTNAME env
+	hostname = flag.String("hostname", os.Getenv("HOSTNAME"), "As an Attribute of span.")
 )
 
 var (
-	// NOTE: should obtain this from $HOST_IP env
-	tcpAddr      = "tcp://0.0.0.0:12345"
-	unixsockAddr = "unix:///var/run/hunter-agent.sock"
-
-	// NOTE: should obtain this from $HOSTNAME env
-	hostname = "fake-client-hostname"
+	defaultName          = "world"
+	defaultTCPListenAddr = "0.0.0.0:50051"
 
 	// obtain service_name from config file
-	fakeconfig  = "config.fake"
-	serviceName = agent.ConfigRead(fakeconfig, "cluster")
+	fakeconfig = "config.fake"
 )
 
 func main() {
+	flag.Parse()
+
+	if *tcpAddr == "" && *unixsockAddr == "" {
+		flag.Usage()
+		os.Exit(0)
+	}
 
 	addrs := make(map[string]string, 2)
-	addrs["tcp"] = strings.TrimPrefix(tcpAddr, "tcp://")
-	addrs["unix"] = strings.TrimPrefix(unixsockAddr, "unix://")
+	addrs["tcp"] = strings.TrimPrefix(*tcpAddr, "tcp://")
+	//addrs["unix"] = strings.TrimPrefix(*unixsockAddr, "unix://")
 
 	exporter, err := agent.NewExporter(
 		agent.Addrs(addrs),
@@ -60,16 +71,24 @@ func main() {
 	// Set up a connection to the server with the OpenCensus
 	// stats handler to enable stats and tracing.
 	info := &ocgrpc.CustomInfo{
-		ServiceName: "helloworld-client" + "-" + serviceName,
+		ServiceName: "helloworld-client" + "-" + agent.ConfigRead(fakeconfig, "cluster"),
 		MethodName:  "GetUserProfile",
 		RemoteKind:  "grpc",
 		UID:         int64(123456),
 		Source:      "web",
-		HostName:    hostname,
+		HostName:    *hostname,
 	}
 	ch := ocgrpc.NewClientHandler(info)
 	ch.StartOptions.Sampler = trace.AlwaysSample()
-	conn, err := grpc.Dial(address, grpc.WithStatsHandler(ch), grpc.WithInsecure())
+
+	var addr string
+	if *grpcServerListenAddr == "" {
+		addr = defaultTCPListenAddr
+	} else {
+		addr = *grpcServerListenAddr
+	}
+
+	conn, err := grpc.Dial(addr, grpc.WithStatsHandler(ch), grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Cannot connect: %v", err)
 	}
@@ -78,9 +97,11 @@ func main() {
 
 	// Contact the server and print out its response.
 	name := defaultName
-	if len(os.Args) > 1 {
-		name = os.Args[1]
-	}
+	/*
+		if len(os.Args) > 1 {
+			name = os.Args[1]
+		}
+	*/
 	view.SetReportingPeriod(15 * time.Second)
 	for {
 		r, err := c.SayHello(context.Background(), &pb.HelloRequest{Name: name})
