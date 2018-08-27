@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	agent "github.com/moooofly/opencensus-go-exporter-agent"
@@ -20,8 +19,11 @@ var (
 	grpcServerListenAddr = flag.String("grpc_server_listen_addr", "", "Default gPRC server listen addr.")
 
 	// NOTE: should obtain this from $HOST_IP env
-	tcpAddr = flag.String("agent_tcp_addr", os.Getenv("HOST_IP"),
-		"The TCP endport of Hunter agent, can also set with AGENT_TCP_ADDR env. (Format: tcp://<host>:<port>)")
+	agentIp = flag.String("agent_tcp_ip", os.Getenv("HOST_IP"),
+		"The ip of TCP endport of Hunter agent, can also set with HOST_IP env.")
+
+	agentPort = flag.String("agent_tcp_port", "12345",
+		"The port of TCP endport of Hunter agent, use 12345 by default.")
 
 	unixsockAddr = flag.String("agent_unix_addr", os.Getenv("AGENT_UNIX_ADDR"),
 		"The Unix endpoint of Hunter agent, can also set with AGENT_UNIX_ADDR env. (Format: unix:///<path-to-unix-domain>)")
@@ -41,13 +43,14 @@ var (
 func main() {
 	flag.Parse()
 
-	if *tcpAddr == "" && *unixsockAddr == "" {
+	//if *tcpAddr == "" && *unixsockAddr == "" {
+	if *agentIp == "" {
 		flag.Usage()
 		os.Exit(0)
 	}
 
 	addrs := make(map[string]string, 2)
-	addrs["tcp"] = strings.TrimPrefix(*tcpAddr, "tcp://")
+	addrs["tcp"] = *agentIp + ":" + *agentPort
 	//addrs["unix"] = strings.TrimPrefix(*unixsockAddr, "unix://")
 
 	exporter, err := agent.NewExporter(
