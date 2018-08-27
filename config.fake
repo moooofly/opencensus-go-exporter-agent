@@ -1,0 +1,8 @@
+app="hunterdemo-by-moooofly"
+cluster="hunterdemo-golang-api"
+detail="api"
+hunterdemo-golang-api="true"
+load-balancer-hunterdemo-golang-svc="true"
+pod-template-hash="522322329"
+replication-controller="hunterdemo-golang-api-v020"
+stack="golang"

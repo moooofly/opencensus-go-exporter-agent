@@ -1,0 +1,7 @@
+FROM alpine:3.7
+
+COPY grpc_server .
+COPY config.fake .
+
+ENTRYPOINT ["/grpc_server"]
+CMD ["-h"]

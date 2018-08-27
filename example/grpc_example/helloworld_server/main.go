@@ -1,22 +1,9 @@
-// Copyright 2017, OpenCensus Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //go:generate protoc -I ../proto --go_out=plugins=grpc:../proto ../proto/helloworld.proto
 
 package main
 
 import (
+	"flag"
 	"log"
 	"math/rand"
 	"net"
@@ -35,12 +22,25 @@ import (
 	"google.golang.org/grpc"
 )
 
-const port = ":50051"
-
-// FIXME: hardcode
 var (
-	tcpAddr      = "tcp://0.0.0.0:12345"
-	unixsockAddr = "unix:///var/run/hunter-agent.sock"
+	grpcServerListenPort = flag.String("grpc_server_listen_port", "", "Default gPRC server listen port.")
+
+	// NOTE: should obtain this from $HOST_IP env
+	tcpAddr = flag.String("agent_tcp_addr", os.Getenv("HOST_IP"),
+		"The TCP endport of Hunter agent, can also set with AGENT_TCP_ADDR env. (Format: tcp://<host>:<port>)")
+
+	unixsockAddr = flag.String("agent_unix_addr", os.Getenv("AGENT_UNIX_ADDR"),
+		"The Unix endpoint of Hunter agent, can also set with AGENT_UNIX_ADDR env. (Format: unix:///<path-to-unix-domain>)")
+
+	// NOTE: should obtain this from $HOSTNAME env
+	hostname = flag.String("hostname", os.Getenv("HOSTNAME"), "As an Attribute of span.")
+)
+
+var (
+	defaultTCPListenPort = "50051"
+
+	// obtain service_name from config file
+	fakeconfig = "config.fake"
 )
 
 // server is used to implement helloworld.GreeterServer.
@@ -65,6 +65,13 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 }
 
 func main() {
+	flag.Parse()
+
+	if *tcpAddr == "" && *unixsockAddr == "" {
+		flag.Usage()
+		os.Exit(0)
+	}
+
 	// Start z-Pages server.
 	go func() {
 		mux := http.NewServeMux()
@@ -73,8 +80,8 @@ func main() {
 	}()
 
 	addrs := make(map[string]string, 2)
-	addrs["tcp"] = strings.TrimPrefix(tcpAddr, "tcp://")
-	addrs["unix"] = strings.TrimPrefix(unixsockAddr, "unix://")
+	addrs["tcp"] = strings.TrimPrefix(*tcpAddr, "tcp://")
+	//addrs["unix"] = strings.TrimPrefix(*unixsockAddr, "unix://")
 
 	exporter, err := agent.NewExporter(
 		agent.Addrs(addrs),
@@ -96,26 +103,32 @@ func main() {
 
 	view.SetReportingPeriod(15 * time.Second)
 
-	lis, err := net.Listen("tcp", port)
+	var addr string
+	if *grpcServerListenPort == "" {
+		addr = "0.0.0.0:" + defaultTCPListenPort
+	} else {
+		addr = "0.0.0.0:" + *grpcServerListenPort
+	}
+
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-
 	info := &ocgrpc.CustomInfo{
-		"helloworld-server-grpc",
-		"GetUserProfile",
-		"grpc",
-		int64(123456),
-		"web",
+		ServiceName: "helloworld-server" + "-" + agent.ConfigRead(fakeconfig, "cluster"),
+		MethodName:  "GetUserProfile",
+		RemoteKind:  "grpc",
+		UID:         int64(123456),
+		Source:      "web",
+		HostName:    *hostname,
 	}
 	sh := ocgrpc.NewServerHandler(info)
 	sh.IsPublicEndpoint = false
 	sh.StartOptions.Sampler = trace.AlwaysSample()
 	s := grpc.NewServer(grpc.StatsHandler(sh))
-	//s := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	pb.RegisterGreeterServer(s, &server{})
 
 	if err := s.Serve(lis); err != nil {
