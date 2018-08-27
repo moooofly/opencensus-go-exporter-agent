@@ -1,3 +1,16 @@
+<a name="0.6.0"></a>
+# [0.6.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.5.0...v0.6.0) (2018-08-27)
+
+
+### Features
+
+* **example:** add Dockerfile for grpc_example ([86958af](https://github.com/moooofly/opencensus-go-exporter-agent/commit/86958af))
+* **example:** update grpc_example/local_example to obtain config from env and file ([6dd2565](https://github.com/moooofly/opencensus-go-exporter-agent/commit/6dd2565))
+* **example:** update src files of grpc_example for dockerization ([56626dd](https://github.com/moooofly/opencensus-go-exporter-agent/commit/56626dd))
+* update Makefile for easy docker test ([6a299cd](https://github.com/moooofly/opencensus-go-exporter-agent/commit/6a299cd))
+
+
+
 <a name="0.5.0"></a>
 # [0.5.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.4.0...v0.5.0) (2018-08-24)
 
