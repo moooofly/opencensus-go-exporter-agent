@@ -63,7 +63,7 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 	*/
 
 	rand.Seed(time.Now().UnixNano())
-	d := time.Duration(rand.Intn(3)) * time.Second
+	d := time.Duration(rand.Intn(3000)) * time.Millisecond
 	time.Sleep(d)
 
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
@@ -123,20 +123,18 @@ func main() {
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	info := &ocgrpc.CustomInfo{
-		ServiceName: agent.ConfigRead(*configPath, "cluster"),
-		RemoteKind:  "grpc",
-		UID:         int64(123456),
-		Source:      "web",
-		HostName:    *hostname,
-	}
+	info := ocgrpc.NewServerCustomInfo(
+		agent.ConfigRead(*configPath, "cluster"),
+		*hostname,
+	)
 	sh := ocgrpc.NewServerHandler(info)
 	sh.IsPublicEndpoint = false
 
 	// FIXME:
-	// if remote parent with specific Sampler, server side should not set this (by tony)
-	// but not work as expect, so roll back
-	sh.StartOptions.Sampler = trace.AlwaysSample()
+	// If remote parent (client) set with specific Sampler, server side dose not need to set again.
+	// If changing sample rate is your option, just do it here.
+	//sh.StartOptions.Sampler = trace.AlwaysSample()
+
 	s := grpc.NewServer(grpc.StatsHandler(sh))
 	pb.RegisterGreeterServer(s, &server{})
 

@@ -73,13 +73,11 @@ func main() {
 
 	// Set up a connection to the server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	info := &ocgrpc.CustomInfo{
-		ServiceName: agent.ConfigRead(*configPath, "cluster"),
-		RemoteKind:  "grpc",
-		UID:         int64(123456),
-		Source:      "web",
-		HostName:    *hostname,
-	}
+	info := ocgrpc.NewClientCustomInfo(
+		agent.ConfigRead(*configPath, "cluster"),
+		*hostname,
+	)
+
 	ch := ocgrpc.NewClientHandler(info)
 	ch.StartOptions.Sampler = trace.AlwaysSample()
 
