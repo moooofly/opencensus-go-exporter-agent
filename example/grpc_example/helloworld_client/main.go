@@ -30,14 +30,14 @@ var (
 
 	// NOTE: should obtain this from $HOSTNAME env
 	hostname = flag.String("hostname", os.Getenv("HOSTNAME"), "As an Attribute of span.")
+
+	//fakeconfig = "config.fake"
+	configPath = flag.String("configPath", agent.DefaultConfigPath, "Config file from which get 'cluster' item.")
 )
 
 var (
 	defaultName          = "world"
 	defaultTCPListenAddr = "0.0.0.0:50051"
-
-	// obtain service_name from config file
-	fakeconfig = "config.fake"
 )
 
 func main() {
@@ -74,8 +74,7 @@ func main() {
 	// Set up a connection to the server with the OpenCensus
 	// stats handler to enable stats and tracing.
 	info := &ocgrpc.CustomInfo{
-		ServiceName: "helloworld-client" + "-" + agent.ConfigRead(fakeconfig, "cluster"),
-		MethodName:  "GetUserProfile",
+		ServiceName: agent.ConfigRead(*configPath, "cluster"),
 		RemoteKind:  "grpc",
 		UID:         int64(123456),
 		Source:      "web",

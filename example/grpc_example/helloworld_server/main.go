@@ -36,13 +36,11 @@ var (
 
 	// NOTE: should obtain this from $HOSTNAME env
 	hostname = flag.String("hostname", os.Getenv("HOSTNAME"), "As an Attribute of span.")
-)
 
-var (
+	//fakeconfig = "config.fake"
+	configPath = flag.String("configPath", agent.DefaultConfigPath, "Config file from which get 'cluster' item.")
+
 	defaultTCPListenPort = "50051"
-
-	// obtain service_name from config file
-	fakeconfig = "config.fake"
 )
 
 // server is used to implement helloworld.GreeterServer.
@@ -50,19 +48,24 @@ type server struct{}
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	ctx, span := trace.StartSpan(ctx, "sleep1")
+	/*
+		ctx, span := trace.StartSpan(ctx, "sleep1")
 
-	// --
-	span.AddAttributes(trace.StringAttribute("service_name", "sleep2"))
-	span.AddAttributes(trace.StringAttribute("method_name", "do_some_sleep"))
-	span.SetName("setname")
-	span.AddAttributes(trace.StringAttribute("remote_kind", "remote_kind_grpc"))
-	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
-	span.AddAttributes(trace.StringAttribute("source", "source_grpc"))
-	// --
+		span.AddAttributes(trace.StringAttribute("service_name", "sleep2"))
+		span.AddAttributes(trace.StringAttribute("method_name", "do_some_sleep"))
+		span.SetName("setname")
+		span.AddAttributes(trace.StringAttribute("remote_kind", "remote_kind_grpc"))
+		span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
+		span.AddAttributes(trace.StringAttribute("source", "source_grpc"))
 
-	time.Sleep(time.Duration(rand.Float64() * float64(time.Second)))
-	span.End()
+		time.Sleep(time.Duration(rand.Float64() * float64(time.Second)))
+		span.End()
+	*/
+
+	rand.Seed(time.Now().UnixNano())
+	d := time.Duration(rand.Intn(3)) * time.Second
+	time.Sleep(d)
+
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
 }
 
@@ -121,8 +124,7 @@ func main() {
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
 	info := &ocgrpc.CustomInfo{
-		ServiceName: "helloworld-server" + "-" + agent.ConfigRead(fakeconfig, "cluster"),
-		MethodName:  "GetUserProfile",
+		ServiceName: agent.ConfigRead(*configPath, "cluster"),
 		RemoteKind:  "grpc",
 		UID:         int64(123456),
 		Source:      "web",
@@ -130,6 +132,10 @@ func main() {
 	}
 	sh := ocgrpc.NewServerHandler(info)
 	sh.IsPublicEndpoint = false
+
+	// FIXME:
+	// if remote parent with specific Sampler, server side should not set this (by tony)
+	// but not work as expect, so roll back
 	sh.StartOptions.Sampler = trace.AlwaysSample()
 	s := grpc.NewServer(grpc.StatsHandler(sh))
 	pb.RegisterGreeterServer(s, &server{})
