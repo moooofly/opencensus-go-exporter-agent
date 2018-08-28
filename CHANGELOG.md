@@ -1,3 +1,14 @@
+<a name="0.7.0"></a>
+# [0.7.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.6.0...v0.7.0) (2018-08-28)
+
+
+### Features
+
+* **example:** remove MethodName setting, update ServiceName setting, remove sleep span ([cc1d689](https://github.com/moooofly/opencensus-go-exporter-agent/commit/cc1d689))
+* **example:** use NewClientCustomInfo/NewServerCustomInfo for easy attributes setting ([41dd0f0](https://github.com/moooofly/opencensus-go-exporter-agent/commit/41dd0f0))
+
+
+
 <a name="0.6.0"></a>
 # [0.6.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.5.0...v0.6.0) (2018-08-27)
 
