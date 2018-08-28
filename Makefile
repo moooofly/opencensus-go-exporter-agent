@@ -1,4 +1,4 @@
-VERSION := "v0.1.0"
+include VERSION.docker
 
 all:
 	@echo "Usage:"
@@ -28,8 +28,8 @@ docker: build_grpc
 
 docker_run:
 	@# docker0 (bridge) ->  172.17.0.1
-	docker run -d --rm --name grpc_server -p 50051:50051 hunter-demo-golang-server:${VERSION} -agent_tcp_ip 172.17.0.1 -grpc_server_listen_port 50051
-	docker run -d --rm --name grpc_client hunter-demo-golang-client:${VERSION} -agent_tcp_ip 172.17.0.1 -grpc_server_listen_addr 172.17.0.1:50051
+	docker run -d --rm --name grpc_server -p 50051:50051 hunter-demo-golang-server:${VERSION} -agent_tcp_ip 172.17.0.1 -grpc_server_listen_port 50051 -configPath config.fake
+	docker run -d --rm --name grpc_client hunter-demo-golang-client:${VERSION} -agent_tcp_ip 172.17.0.1 -grpc_server_listen_addr 172.17.0.1:50051 -configPath config.fake
 
 docker_push:
 	docker tag hunter-demo-golang-server:${VERSION} stag-reg.llsops.com/backend/hunter-demo-golang-server:${VERSION}
