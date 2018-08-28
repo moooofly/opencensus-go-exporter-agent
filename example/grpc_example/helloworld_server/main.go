@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	agent "github.com/moooofly/opencensus-go-exporter-agent"
@@ -26,21 +25,22 @@ var (
 	grpcServerListenPort = flag.String("grpc_server_listen_port", "", "Default gPRC server listen port.")
 
 	// NOTE: should obtain this from $HOST_IP env
-	tcpAddr = flag.String("agent_tcp_addr", os.Getenv("HOST_IP"),
-		"The TCP endport of Hunter agent, can also set with AGENT_TCP_ADDR env. (Format: tcp://<host>:<port>)")
+	agentIp = flag.String("agent_tcp_ip", os.Getenv("HOST_IP"),
+		"The ip of TCP endport of Hunter agent, can also set with HOST_IP env.")
+
+	agentPort = flag.String("agent_tcp_port", "12345",
+		"The port of TCP endport of Hunter agent, use 12345 by default.")
 
 	unixsockAddr = flag.String("agent_unix_addr", os.Getenv("AGENT_UNIX_ADDR"),
 		"The Unix endpoint of Hunter agent, can also set with AGENT_UNIX_ADDR env. (Format: unix:///<path-to-unix-domain>)")
 
 	// NOTE: should obtain this from $HOSTNAME env
 	hostname = flag.String("hostname", os.Getenv("HOSTNAME"), "As an Attribute of span.")
-)
 
-var (
+	//fakeconfig = "config.fake"
+	configPath = flag.String("configPath", agent.DefaultConfigPath, "Config file from which get 'cluster' item.")
+
 	defaultTCPListenPort = "50051"
-
-	// obtain service_name from config file
-	fakeconfig = "config.fake"
 )
 
 // server is used to implement helloworld.GreeterServer.
@@ -48,26 +48,32 @@ type server struct{}
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	ctx, span := trace.StartSpan(ctx, "sleep1")
+	/*
+		ctx, span := trace.StartSpan(ctx, "sleep1")
 
-	// --
-	span.AddAttributes(trace.StringAttribute("service_name", "sleep2"))
-	span.AddAttributes(trace.StringAttribute("method_name", "do_some_sleep"))
-	span.SetName("setname")
-	span.AddAttributes(trace.StringAttribute("remote_kind", "remote_kind_grpc"))
-	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
-	span.AddAttributes(trace.StringAttribute("source", "source_grpc"))
-	// --
+		span.AddAttributes(trace.StringAttribute("service_name", "sleep2"))
+		span.AddAttributes(trace.StringAttribute("method_name", "do_some_sleep"))
+		span.SetName("setname")
+		span.AddAttributes(trace.StringAttribute("remote_kind", "remote_kind_grpc"))
+		span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
+		span.AddAttributes(trace.StringAttribute("source", "source_grpc"))
 
-	time.Sleep(time.Duration(rand.Float64() * float64(time.Second)))
-	span.End()
+		time.Sleep(time.Duration(rand.Float64() * float64(time.Second)))
+		span.End()
+	*/
+
+	rand.Seed(time.Now().UnixNano())
+	d := time.Duration(rand.Intn(3000)) * time.Millisecond
+	time.Sleep(d)
+
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
 }
 
 func main() {
 	flag.Parse()
 
-	if *tcpAddr == "" && *unixsockAddr == "" {
+	//if *agentIp == "" && *unixsockAddr == "" {
+	if *agentIp == "" {
 		flag.Usage()
 		os.Exit(0)
 	}
@@ -80,7 +86,7 @@ func main() {
 	}()
 
 	addrs := make(map[string]string, 2)
-	addrs["tcp"] = strings.TrimPrefix(*tcpAddr, "tcp://")
+	addrs["tcp"] = *agentIp + ":" + *agentPort
 	//addrs["unix"] = strings.TrimPrefix(*unixsockAddr, "unix://")
 
 	exporter, err := agent.NewExporter(
@@ -117,17 +123,18 @@ func main() {
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	info := &ocgrpc.CustomInfo{
-		ServiceName: "helloworld-server" + "-" + agent.ConfigRead(fakeconfig, "cluster"),
-		MethodName:  "GetUserProfile",
-		RemoteKind:  "grpc",
-		UID:         int64(123456),
-		Source:      "web",
-		HostName:    *hostname,
-	}
+	info := ocgrpc.NewServerCustomInfo(
+		agent.ConfigRead(*configPath, "cluster"),
+		*hostname,
+	)
 	sh := ocgrpc.NewServerHandler(info)
 	sh.IsPublicEndpoint = false
-	sh.StartOptions.Sampler = trace.AlwaysSample()
+
+	// FIXME:
+	// If remote parent (client) set with specific Sampler, server side dose not need to set again.
+	// If changing sample rate is your option, just do it here.
+	//sh.StartOptions.Sampler = trace.AlwaysSample()
+
 	s := grpc.NewServer(grpc.StatsHandler(sh))
 	pb.RegisterGreeterServer(s, &server{})
 
