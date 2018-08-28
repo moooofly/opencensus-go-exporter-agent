@@ -41,6 +41,15 @@ docker_stop:
 	docker stop grpc_client
 	docker stop grpc_server
 
+docker_tmp: build_grpc
+	docker build -t hunter-demo-golang-server:tmp -f Dockerfile.hws .
+	docker build -t hunter-demo-golang-client:tmp -f Dockerfile.hwc .
+
+docker_run_tmp:
+	@# docker0 (bridge) ->  172.17.0.1
+	docker run -d --rm --name grpc_server -p 50051:50051 hunter-demo-golang-server:tmp -agent_tcp_ip 172.17.0.1 -grpc_server_listen_port 50051 -configPath config.fake
+	docker run -d --rm --name grpc_client hunter-demo-golang-client:tmp -agent_tcp_ip 172.17.0.1 -grpc_server_listen_addr 172.17.0.1:50051 -configPath config.fake
+
 clean:
 	rm -f main
 	rm -f grpc_client
