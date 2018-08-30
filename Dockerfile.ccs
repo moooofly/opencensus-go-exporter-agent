@@ -1,0 +1,7 @@
+FROM alpine:3.7
+
+COPY callchain_server .
+COPY config.fake .
+
+ENTRYPOINT ["/callchain_server"]
+CMD ["-h"]
