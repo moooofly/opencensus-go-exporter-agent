@@ -1,3 +1,13 @@
+<a name="0.8.0"></a>
+# [0.8.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.7.0...v0.8.0) (2018-08-30)
+
+
+### Features
+
+* **example:** add callchain example ([96b2b24](https://github.com/moooofly/opencensus-go-exporter-agent/commit/96b2b24))
+
+
+
 <a name="0.7.0"></a>
 # [0.7.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.6.0...v0.7.0) (2018-08-28)
 
