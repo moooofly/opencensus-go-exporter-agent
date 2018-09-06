@@ -1,7 +1,7 @@
 FROM alpine:3.7
 
-COPY callchain_client .
+COPY cc_client .
 COPY config.fake .
 
-ENTRYPOINT ["/callchain_client"]
+ENTRYPOINT ["/cc_client"]
 CMD ["-h"]
