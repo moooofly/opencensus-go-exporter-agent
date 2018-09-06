@@ -3,9 +3,11 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -53,9 +55,16 @@ type server struct{}
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	var wg sync.WaitGroup
 
+	var err error
+	if rand.Float32() < in.GetErrorRate() {
+		err = errors.New("trigger error by probability")
+	} else {
+		err = nil
+	}
+
 	nodes := in.GetNodes()
 	if nodes == "" {
-		return &pb.HelloReply{Message: "[END] Hello " + in.Name}, nil
+		return &pb.HelloReply{Message: "[END] Hello " + in.Name}, err
 	}
 
 	info := ocgrpc.NewClientCustomInfo(
@@ -94,7 +103,7 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 
 	wg.Wait()
 
-	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
+	return &pb.HelloReply{Message: "Hello " + in.Name}, err
 }
 
 func main() {
