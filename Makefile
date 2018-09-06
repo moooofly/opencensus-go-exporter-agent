@@ -1,4 +1,4 @@
-include VERSION.docker
+VERSION := v0.5.0
 
 all:
 	@echo "Usage:"
@@ -15,7 +15,9 @@ tcp: build
 unix: build
 	./main -unix_sock_addr unix:///var/run/hunter-agent.sock
 
-build:
+build: build_local build_grpc build_cc
+
+build_local:
 	CGO_ENABLED=0 GOOS=linux go build -o main example/local_example/main.go
 
 build_grpc:
@@ -23,8 +25,8 @@ build_grpc:
 	CGO_ENABLED=0 GOOS=linux go build -o grpc_server example/grpc_example/helloworld_server/main.go
 
 build_cc:
-	CGO_ENABLED=0 GOOS=linux go build -o callchain_client example/callchain_example/callchain_client/main.go
-	CGO_ENABLED=0 GOOS=linux go build -o callchain_server example/callchain_example/callchain_server/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o cc_client example/callchain_example/callchain_client/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o cc_server example/callchain_example/callchain_server/main.go
 
 docker: build_grpc build_cc
 	@# helloworld grpc
@@ -66,5 +68,5 @@ clean:
 	rm -f main
 	rm -f grpc_client
 	rm -f grpc_server
-	rm -f callchain_client
-	rm -f callchain_server
+	rm -f cc_client
+	rm -f cc_server
