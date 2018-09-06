@@ -1,3 +1,18 @@
+<a name="0.9.0"></a>
+# [0.9.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.8.0...v0.9.0) (2018-09-06)
+
+
+### Bug Fixes
+
+* fix wrong .gitignore setting ([2f5990a](https://github.com/moooofly/opencensus-go-exporter-agent/commit/2f5990a))
+
+
+### Features
+
+* add error_rate support ([b31c46d](https://github.com/moooofly/opencensus-go-exporter-agent/commit/b31c46d))
+
+
+
 <a name="0.8.0"></a>
 # [0.8.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.7.0...v0.8.0) (2018-08-30)
 
