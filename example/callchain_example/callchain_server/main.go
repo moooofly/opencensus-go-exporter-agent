@@ -1,5 +1,3 @@
-//go:generate protoc -I ../proto --go_out=plugins=grpc:../proto ../proto/helloworld.proto
-
 package main
 
 import (
@@ -44,7 +42,6 @@ var (
 	//fakeconfig = "config.fake"
 	configPath = flag.String("configPath", agent.DefaultConfigPath, "Config file from which get 'cluster' item.")
 
-	defaultName = "callchain"
 	defaultPort = "50051"
 )
 
@@ -85,7 +82,7 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 
 		for _, d := range dests {
 			wg.Add(1)
-			go call(ctx, &wg, d, ch, "")
+			go call(ctx, &wg, d, ch, "", in)
 		}
 	} else {
 		split := strings.SplitN(nodes, "|", 2)
@@ -97,7 +94,7 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 
 		for _, d := range dests {
 			wg.Add(1)
-			go call(ctx, &wg, d, ch, split[1])
+			go call(ctx, &wg, d, ch, split[1], in)
 		}
 	}
 
@@ -181,7 +178,7 @@ func main() {
 	}
 }
 
-func call(ctx context.Context, wg *sync.WaitGroup, addr string, ch *ocgrpc.ClientHandler, left string) {
+func call(ctx context.Context, wg *sync.WaitGroup, addr string, ch *ocgrpc.ClientHandler, left string, in *pb.HelloRequest) {
 	defer wg.Done()
 
 	conn, err := grpc.Dial(addr, grpc.WithStatsHandler(ch), grpc.WithInsecure())
@@ -194,9 +191,9 @@ func call(ctx context.Context, wg *sync.WaitGroup, addr string, ch *ocgrpc.Clien
 	c := pb.NewGreeterClient(conn)
 
 	r, err := c.SayHello(ctx, &pb.HelloRequest{
-		Name:      defaultName,
+		Name:      in.GetName(),
 		Nodes:     left,
-		ErrorRate: float32(0), // TODO
+		ErrorRate: in.GetErrorRate(),
 	})
 	if err != nil {
 		log.Printf("Could not greet: %v", err)
