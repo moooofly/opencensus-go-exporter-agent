@@ -1,4 +1,4 @@
-include VERSION.docker
+VERSION := v0.5.0
 
 all:
 	@echo "Usage:"
@@ -15,7 +15,9 @@ tcp: build
 unix: build
 	./main -unix_sock_addr unix:///var/run/hunter-agent.sock
 
-build:
+build: build_local build_grpc build_cc
+
+build_local:
 	CGO_ENABLED=0 GOOS=linux go build -o main example/local_example/main.go
 
 build_grpc:
