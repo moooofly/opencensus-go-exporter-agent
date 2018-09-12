@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	agent "github.com/moooofly/opencensus-go-exporter-agent"
 	"go.opencensus.io/trace"
@@ -15,16 +14,16 @@ import (
 // used as attributes key
 const (
 	SERVICE_NAME = "service_name"
+	KIND         = "kind"
 	REMOTE_KIND  = "remote_kind"
-	QUERY        = "query"
 )
 
 // used as value of REMOTE_KIND
 const (
-	REMOTE_KIND_GRPC  = "grpc"
-	REMOTE_KIND_HTTP  = "http"
-	REMOTE_KIND_MYSQL = "mysql"
-	REMOTE_KIND_REDIS = "redis"
+	KIND_GRPC  = "grpc"
+	KIND_HTTP  = "http"
+	KIND_MYSQL = "mysql"
+	KIND_REDIS = "redis"
 )
 
 var (
@@ -82,24 +81,25 @@ func main() {
 
 	for {
 		simulate_neo_api(context.Background())
-		time.Sleep(time.Second)
+		//time.Sleep(10 * time.Millisecond)
 		logger.Println("-----")
 	}
 }
 
+// NOTE: update this value every time
+var index = "20180912"
+
 func simulate_neo_api(ctx context.Context) {
 	ctx, span := trace.StartSpan(ctx,
 		"/simulate_neo_api",
-		// FIXME: why?
-		//trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithSpanKind(trace.SpanKindServer),
 	)
 	logger.Println("simulate_neo_api ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
 	span.SetName("/api/user/:uid/profile")
-	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_HTTP))
+	span.AddAttributes(trace.StringAttribute(KIND, KIND_HTTP))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-1"))
 
@@ -122,16 +122,16 @@ func simulate_grpc_client(ctx context.Context) {
 	logger.Println("  simulate_grpc_client ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
 	span.SetName("GetUserProfile")
-	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_GRPC))
+	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, KIND_GRPC))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
 	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-1"))
 
 	span.SetStatus(trace.Status{Code: int32(4), Message: "DeadlineExceeded"})
 
-	time.Sleep(2 * time.Millisecond)
+	//time.Sleep(2 * time.Millisecond)
 	simulate_grpc_server(ctx)
 }
 
@@ -143,16 +143,16 @@ func simulate_grpc_server(ctx context.Context) {
 	logger.Println("    simulate_grpc_server ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "user-svc-my"+"-"+serviceName))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"="+serviceName))
 	span.SetName("GetUserProfile")
-	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_GRPC))
+	span.AddAttributes(trace.StringAttribute(KIND, KIND_GRPC))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
 	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-2"))
 
 	span.SetStatus(trace.Status{Code: int32(0), Message: "ok"})
 
-	time.Sleep(4 * time.Millisecond)
+	//time.Sleep(4 * time.Millisecond)
 	simulate_grpc_server_call_mysql(ctx)
 }
 
@@ -164,9 +164,9 @@ func simulate_grpc_server_call_mysql(ctx context.Context) {
 	logger.Println("    simulate_grpc_server_call_mysql ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "user-svc-my"+"-"+serviceName))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"="+serviceName))
 	span.SetName("select")
-	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_MYSQL))
+	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, KIND_MYSQL))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "grpc"))
 	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-2"))
@@ -177,7 +177,7 @@ func simulate_grpc_server_call_mysql(ctx context.Context) {
 
 	span.SetStatus(trace.Status{Code: int32(0), Message: "ok"})
 
-	time.Sleep(15 * time.Millisecond)
+	//time.Sleep(15 * time.Millisecond)
 }
 
 func simulate_neo_api_call_mysql(ctx context.Context) {
@@ -188,9 +188,9 @@ func simulate_neo_api_call_mysql(ctx context.Context) {
 	logger.Println("  simulate_neo_api_call_mysql ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
 	span.SetName("select")
-	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_MYSQL))
+	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, KIND_MYSQL))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
 	span.AddAttributes(trace.StringAttribute("hostname", "fake-hostname-1"))
@@ -201,7 +201,7 @@ func simulate_neo_api_call_mysql(ctx context.Context) {
 
 	span.SetStatus(trace.Status{Code: int32(0), Message: "ok"})
 
-	time.Sleep(25 * time.Millisecond)
+	//time.Sleep(25 * time.Millisecond)
 }
 
 func simulate_neo_api_call_redis(ctx context.Context) {
@@ -212,9 +212,9 @@ func simulate_neo_api_call_redis(ctx context.Context) {
 	logger.Println("  simulate_neo_api_call_redis ->")
 	defer span.End()
 
-	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, "neo-api-my"+"-"+serviceName))
+	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
 	span.SetName("mget")
-	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, REMOTE_KIND_REDIS))
+	span.AddAttributes(trace.StringAttribute(REMOTE_KIND, KIND_REDIS))
 	span.AddAttributes(trace.Int64Attribute("uid", int64(123456)))
 	span.AddAttributes(trace.StringAttribute("source", "web"))
 	span.AddAttributes(trace.Int64Attribute("count", int64(1000)))
@@ -226,5 +226,5 @@ func simulate_neo_api_call_redis(ctx context.Context) {
 
 	span.SetStatus(trace.Status{Code: int32(0), Message: "ok"})
 
-	time.Sleep(35 * time.Millisecond)
+	//time.Sleep(35 * time.Millisecond)
 }
