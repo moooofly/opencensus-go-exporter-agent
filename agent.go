@@ -17,6 +17,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
+	"google.golang.org/api/support/bundler"
 	"google.golang.org/grpc"
 
 	"github.com/census-instrumentation/opencensus-proto/gen-go/exporterproto"
@@ -35,6 +36,12 @@ var DefaultTCPEndpoint = fmt.Sprintf("%s:%d", DefaultTCPHost, DefaultTCPPort)
 type Exporter struct {
 	*options
 
+	bundler *bundler.Bundler
+	// uploadFn defaults to uploadSpans;
+	uploadFn func(spans []*trace.SpanData)
+
+	overflowLogger
+
 	lock         sync.Mutex
 	clientConn   *grpc.ClientConn
 	exportClient exporterproto.Export_ExportSpanClient
@@ -45,11 +52,23 @@ var _ trace.Exporter = (*Exporter)(nil)
 // options are the options to be used when initializing the Hunter agent exporter.
 type options struct {
 	// Hunter agent listening address
-	addrs   map[string]string
-	logger  *log.Logger
+	addrs  map[string]string
+	logger *log.Logger
+
+	// OnError is the hook to be called when there is
+	// an error occurred.
+	// If no custom hook is set, errors are logged.
+	// Optional.
 	onError func(err error)
 
-	// TODO: add more options here
+	// BundleDelayThreshold determines the max amount of time
+	// the exporter can wait before uploading data to the backend.
+	// Optional.
+	BundleDelayThreshold time.Duration
+	// BundleCountThreshold determines how many data events
+	// can be buffered before batch uploading them to the backend.
+	// Optional.
+	BundleCountThreshold int
 }
 
 var defaultExporterOptions = options{
@@ -57,8 +76,10 @@ var defaultExporterOptions = options{
 		"tcp": DefaultTCPEndpoint,
 		//"unix": DefaultUnixSocketEndpoint,
 	},
-	logger:  log.New(os.Stderr, "[hunter-agent-exporter] ", log.LstdFlags),
-	onError: nil,
+	logger:               log.New(os.Stderr, "[hunter-agent-exporter] ", log.LstdFlags),
+	onError:              nil,
+	BundleDelayThreshold: 2 * time.Second,
+	BundleCountThreshold: 50,
 }
 
 // ExporterOption sets options such as addrs, logger, etc.
@@ -131,6 +152,29 @@ func NewExporter(opt ...ExporterOption) (*Exporter, error) {
 		exportClient: clientStream,
 	}
 
+	bundler := bundler.NewBundler((*trace.SpanData)(nil), func(bundle interface{}) {
+		e.uploadFn(bundle.([]*trace.SpanData))
+	})
+
+	if e.BundleDelayThreshold > 0 {
+		bundler.DelayThreshold = e.BundleDelayThreshold
+	} else {
+		bundler.DelayThreshold = 2 * time.Second
+	}
+
+	if e.BundleCountThreshold > 0 {
+		bundler.BundleCountThreshold = e.BundleCountThreshold
+	} else {
+		bundler.BundleCountThreshold = 50
+	}
+
+	bundler.BundleByteThreshold = bundler.BundleCountThreshold * 200
+	bundler.BundleByteLimit = bundler.BundleCountThreshold * 1000
+	bundler.BufferedByteLimit = bundler.BundleCountThreshold * 2000
+
+	e.bundler = bundler
+	e.uploadFn = e.uploadSpans
+
 	return e, nil
 }
 
@@ -142,9 +186,8 @@ func (e *Exporter) onError(err error) {
 	e.logger.Printf("Exporter fail: %v", err)
 }
 
-// ExportSpan exports a span to Hunter agent.
-func (e *Exporter) ExportSpan(sd *trace.SpanData) {
-
+// uploadSpans uploads a set of spans
+func (e *Exporter) uploadSpans(spans []*trace.SpanData) {
 	e.lock.Lock()
 	exportClient := e.exportClient
 	e.lock.Unlock()
@@ -153,54 +196,128 @@ func (e *Exporter) ExportSpan(sd *trace.SpanData) {
 		return
 	}
 
-	e.logger.Printf("[%s] SpanContext.TraceID: %s\n", sd.Name, sd.SpanContext.TraceID.String())
-	e.logger.Printf("[%s] SpanContext.SpanID: %s\n", sd.Name, sd.SpanContext.SpanID.String())
-
-	s := &traceproto.Span{
-		TraceId: sd.SpanContext.TraceID[:],
-		SpanId:  sd.SpanContext.SpanID[:],
-		Name: &traceproto.TruncatableString{
-			Value: sd.Name,
-		},
-		Kind: spanKind(sd),
-		StartTime: &timestamp.Timestamp{
-			Seconds: sd.StartTime.Unix(),
-			Nanos:   int32(sd.StartTime.Nanosecond()),
-		},
-		EndTime: &timestamp.Timestamp{
-			Seconds: sd.EndTime.Unix(),
-			Nanos:   int32(sd.EndTime.Nanosecond()),
-		},
-		Attributes: convertToAttributes(sd.Attributes),
-		//StackTrace: &traceproto.StackTrace{},
-		TimeEvents: convertToTimeEvents(sd.Annotations, sd.MessageEvents),
-		//Links:      &traceproto.Span_Links{},
-		Status: &traceproto.Status{
-			Code:    sd.Code,
-			Message: sd.Message,
-		},
+	req := &exporterproto.ExportSpanRequest{
+		Spans: make([]*traceproto.Span, 0, len(spans)),
 	}
 
-	if sd.ParentSpanID != (trace.SpanID{}) {
-		s.ParentSpanId = make([]byte, 8)
-		copy(s.ParentSpanId, sd.ParentSpanID[:])
-		e.logger.Printf("[%s] s.ParentSpanId: %s   sd.ParentSpanID: %s\n", sd.Name, fmt.Sprintf("%02x", s.ParentSpanId[:]), sd.ParentSpanID.String())
+	for _, span := range spans {
+		req.Spans = append(req.Spans, protoFromSpanData(span))
 	}
 
-	//e.logger.Printf("[%s] spankind: %s\n", sd.Name, s.GetKind().String())
-
-	// NOTE: do batch procession here, if need
-
-	// FIXME: actually the code below send one item a time only.
-	if err := exportClient.Send(&exporterproto.ExportSpanRequest{
-		Spans: []*traceproto.Span{s},
-	}); err != nil {
+	if err := exportClient.Send(req); err != nil {
 		if err == io.EOF {
 			e.logger.Println("Connection is unavailable, LOST current Span...")
 			e.Stop()
 		} else {
 			e.onError(err)
 		}
+	}
+}
+
+func protoFromSpanData(s *trace.SpanData) *traceproto.Span {
+	//e.logger.Printf("[%s] SpanContext.TraceID: %s\n", s.Name, s.SpanContext.TraceID.String())
+	//e.logger.Printf("[%s] SpanContext.SpanID: %s\n", s.Name, s.SpanContext.SpanID.String())
+	if s == nil {
+		return nil
+	}
+
+	sp := &traceproto.Span{
+		TraceId: s.SpanContext.TraceID[:],
+		SpanId:  s.SpanContext.SpanID[:],
+		Name: &traceproto.TruncatableString{
+			Value: s.Name,
+		},
+		Kind: spanKind(s),
+		StartTime: &timestamp.Timestamp{
+			Seconds: s.StartTime.Unix(),
+			Nanos:   int32(s.StartTime.Nanosecond()),
+		},
+		EndTime: &timestamp.Timestamp{
+			Seconds: s.EndTime.Unix(),
+			Nanos:   int32(s.EndTime.Nanosecond()),
+		},
+		Attributes: convertToAttributes(s.Attributes),
+		//StackTrace: &traceproto.StackTrace{},
+		TimeEvents: convertToTimeEvents(s.Annotations, s.MessageEvents),
+		//Links:      &traceproto.Span_Links{},
+		Status: &traceproto.Status{
+			Code:    s.Code,
+			Message: s.Message,
+		},
+	}
+
+	if s.ParentSpanID != (trace.SpanID{}) {
+		sp.ParentSpanId = make([]byte, 8)
+		copy(sp.ParentSpanId, s.ParentSpanID[:])
+		//e.logger.Printf("[%s] s.ParentSpanId: %s   s.ParentSpanID: %s\n", s.Name, fmt.Sprintf("%02x", s.ParentSpanId[:]), s.ParentSpanID.String())
+	}
+
+	return sp
+}
+
+// ExportSpan exports a span to Hunter agent.
+func (e *Exporter) ExportSpan(s *trace.SpanData) {
+	n := 1
+	n += len(s.Attributes)
+	n += len(s.Annotations)
+	n += len(s.MessageEvents)
+	err := e.bundler.Add(s, n)
+	switch err {
+	case nil:
+		return
+	case bundler.ErrOversizedItem:
+		go e.uploadFn([]*trace.SpanData{s})
+	case bundler.ErrOverflow:
+		e.overflowLogger.log()
+	default:
+		e.onError(err)
+	}
+}
+
+// Flush waits for exported trace spans to be uploaded.
+//
+// This is useful if your program is ending and you do not want to lose recent
+// spans.
+func (e *Exporter) Flush() {
+	e.bundler.Flush()
+}
+
+// overflowLogger ensures that at most one overflow error log message is
+// written every 5 seconds.
+type overflowLogger struct {
+	mu    sync.Mutex
+	pause bool
+	accum int
+}
+
+func (o *overflowLogger) delay() {
+	o.pause = true
+	time.AfterFunc(5*time.Second, func() {
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		switch {
+		case o.accum == 0:
+			o.pause = false
+		case o.accum == 1:
+			log.Println("OpenCensus agent exporter: failed to upload span: buffer full")
+			o.accum = 0
+			o.delay()
+		default:
+			log.Printf("OpenCensus agent exporter: failed to upload %d spans: buffer full", o.accum)
+			o.accum = 0
+			o.delay()
+		}
+	})
+}
+
+func (o *overflowLogger) log() {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if !o.pause {
+		log.Println("OpenCensus agent exporter: failed to upload span: buffer full")
+		o.delay()
+	} else {
+		o.accum++
 	}
 }
 

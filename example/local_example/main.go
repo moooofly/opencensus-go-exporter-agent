@@ -73,6 +73,7 @@ func main() {
 		logger.Println(err)
 		os.Exit(1)
 	}
+	defer exporter.Flush()
 
 	trace.RegisterExporter(exporter)
 
