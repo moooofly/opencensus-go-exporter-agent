@@ -7,13 +7,13 @@ all:
 	@echo "  3. make both"
 
 both: build
-	./main -tcp_addr tcp://0.0.0.0:12345 -unix_sock_addr unix:///var/run/hunter-agent.sock
+	./main -tcp_addr tcp://0.0.0.0:12345 -unix_sock_addr unix:///var/run/hunter-agent.sock >/dev/null 2>&1
 
 tcp: build
-	./main -tcp_addr tcp://0.0.0.0:12345
+	./main -tcp_addr tcp://0.0.0.0:12345 >/dev/null 2>&1
 
 unix: build
-	./main -unix_sock_addr unix:///var/run/hunter-agent.sock
+	./main -unix_sock_addr unix:///var/run/hunter-agent.sock >/dev/null 2>&1
 
 build: build_local build_grpc build_cc
 

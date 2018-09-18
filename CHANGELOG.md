@@ -1,3 +1,24 @@
+<a name="0.10.0"></a>
+# [0.10.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.9.0...v0.10.0) (2018-09-18)
+
+
+### Bug Fixes
+
+* fix missing error-rate setting ([6fcdb51](https://github.com/moooofly/opencensus-go-exporter-agent/commit/6fcdb51))
+
+
+### Features
+
+* support batch send by bundle package ([68a1211](https://github.com/moooofly/opencensus-go-exporter-agent/commit/68a1211))
+
+
+### Performance Improvements
+
+* add '>/dev/null 2>&1' to cmd in Makefile ([d9a6f39](https://github.com/moooofly/opencensus-go-exporter-agent/commit/d9a6f39))
+* remove `time.Sleep()` from local_example/main.go ([84c16b8](https://github.com/moooofly/opencensus-go-exporter-agent/commit/84c16b8))
+
+
+
 <a name="0.9.0"></a>
 # [0.9.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.8.0...v0.9.0) (2018-09-06)
 

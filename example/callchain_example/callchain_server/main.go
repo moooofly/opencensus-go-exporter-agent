@@ -132,6 +132,8 @@ func main() {
 		log.Println(err)
 		os.Exit(1)
 	}
+	defer exporter.Flush()
+
 	// Register stats and trace exporters to export
 	// the collected data.
 	view.RegisterExporter(exporter)
