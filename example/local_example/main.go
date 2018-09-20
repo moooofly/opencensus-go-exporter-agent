@@ -73,7 +73,7 @@ func main() {
 		logger.Println(err)
 		os.Exit(1)
 	}
-	defer exporter.Stop()
+	defer exporter.Flush()
 
 	trace.RegisterExporter(exporter)
 
@@ -83,7 +83,7 @@ func main() {
 	for {
 		simulate_neo_api(context.Background())
 		//time.Sleep(10 * time.Millisecond)
-		//logger.Println("-----")
+		logger.Println("-----")
 	}
 }
 
@@ -95,7 +95,7 @@ func simulate_neo_api(ctx context.Context) {
 		"/simulate_neo_api",
 		trace.WithSpanKind(trace.SpanKindServer),
 	)
-	//logger.Println("simulate_neo_api ->")
+	logger.Println("simulate_neo_api ->")
 	defer span.End()
 
 	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
@@ -120,7 +120,7 @@ func simulate_grpc_client(ctx context.Context) {
 		"/simulate_grpc_client",
 		trace.WithSpanKind(trace.SpanKindClient),
 	)
-	//logger.Println("  simulate_grpc_client ->")
+	logger.Println("  simulate_grpc_client ->")
 	defer span.End()
 
 	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
@@ -141,7 +141,7 @@ func simulate_grpc_server(ctx context.Context) {
 		"/simulate_grpc_server",
 		trace.WithSpanKind(trace.SpanKindServer),
 	)
-	//logger.Println("    simulate_grpc_server ->")
+	logger.Println("    simulate_grpc_server ->")
 	defer span.End()
 
 	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"="+serviceName))
@@ -162,7 +162,7 @@ func simulate_grpc_server_call_mysql(ctx context.Context) {
 		"/simulate_grpc_server_call_mysql",
 		trace.WithSpanKind(trace.SpanKindClient),
 	)
-	//logger.Println("    simulate_grpc_server_call_mysql ->")
+	logger.Println("    simulate_grpc_server_call_mysql ->")
 	defer span.End()
 
 	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"="+serviceName))
@@ -186,7 +186,7 @@ func simulate_neo_api_call_mysql(ctx context.Context) {
 		"/simulate_neo_api_call_mysql",
 		trace.WithSpanKind(trace.SpanKindClient),
 	)
-	//logger.Println("  simulate_neo_api_call_mysql ->")
+	logger.Println("  simulate_neo_api_call_mysql ->")
 	defer span.End()
 
 	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
@@ -210,7 +210,7 @@ func simulate_neo_api_call_redis(ctx context.Context) {
 		"/simulate_neo_api_call_redis",
 		trace.WithSpanKind(trace.SpanKindClient),
 	)
-	//logger.Println("  simulate_neo_api_call_redis ->")
+	logger.Println("  simulate_neo_api_call_redis ->")
 	defer span.End()
 
 	span.AddAttributes(trace.StringAttribute(SERVICE_NAME, index+"-"+serviceName))
