@@ -1,3 +1,13 @@
+<a name="1.0.0"></a>
+# [1.0.0](https://github.com/moooofly/opencensus-go-exporter-hunter/compare/v0.11.0...v1.0.0) (2018-09-20)
+
+
+### Features
+
+* rename opencensus-go-exporter-agent to opencensus-go-exporter-hunter ([01304aa](https://github.com/moooofly/opencensus-go-exporter-hunter/commit/01304aa))
+
+
+
 <a name="0.11.0"></a>
 # [0.11.0](https://github.com/moooofly/opencensus-go-exporter-hunter/compare/v0.10.0...v0.11.0) (2018-09-20)
 
