@@ -1,3 +1,13 @@
+<a name="0.11.0"></a>
+# [0.11.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.10.0...v0.11.0) (2018-09-20)
+
+
+### Features
+
+* modularization support and initial connect retry support ([66ec2e9](https://github.com/moooofly/opencensus-go-exporter-agent/commit/66ec2e9))
+
+
+
 <a name="0.10.0"></a>
 # [0.10.0](https://github.com/moooofly/opencensus-go-exporter-agent/compare/v0.9.0...v0.10.0) (2018-09-18)
 
