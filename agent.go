@@ -1,5 +1,5 @@
 // Package agent contains an trace exporter for Hunter.
-package agent // import "github.com/moooofly/opencensus-go-exporter-agent"
+package agent // import "github.com/moooofly/opencensus-go-exporter-hunter"
 
 import (
 	"context"

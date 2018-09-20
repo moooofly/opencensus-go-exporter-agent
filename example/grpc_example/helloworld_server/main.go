@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	agent "github.com/moooofly/opencensus-go-exporter-agent"
+	agent "github.com/moooofly/opencensus-go-exporter-hunter"
 	pb "go.opencensus.io/examples/grpc/proto"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
