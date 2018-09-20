@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	agent "github.com/moooofly/opencensus-go-exporter-agent"
-	pb "github.com/moooofly/opencensus-go-exporter-agent/example/callchain_example/proto"
+	agent "github.com/moooofly/opencensus-go-exporter-hunter"
+	pb "github.com/moooofly/opencensus-go-exporter-hunter/example/callchain_example/proto"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	agent "github.com/moooofly/opencensus-go-exporter-agent"
+	agent "github.com/moooofly/opencensus-go-exporter-hunter"
 	"go.opencensus.io/trace"
 )
 

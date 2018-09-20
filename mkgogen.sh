@@ -2,7 +2,7 @@
 
 # To generate:
 #
-# cd $(go env GOPATH)/src/moooofly/opencensus-go-exporter-agent
+# cd $(go env GOPATH)/src/moooofly/opencensus-go-exporter-hunter
 # ./mkgogen.sh
 
 OUTDIR="$(go env GOPATH)/src"
