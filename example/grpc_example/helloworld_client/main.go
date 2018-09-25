@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/moooofly/ocgrpc-wrapper"
 	agent "github.com/moooofly/opencensus-go-exporter-hunter"
 	pb "go.opencensus.io/examples/grpc/proto"
 	"go.opencensus.io/plugin/ocgrpc"
@@ -75,13 +76,14 @@ func main() {
 
 	// Set up a connection to the server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	info := ocgrpc.NewClientCustomInfo(
+	info := wrapper.NewClientCustomInfo(
 		agent.ConfigRead(*configPath, "cluster"),
 		*hostname,
+		trace.AlwaysSample(),
 	)
 
-	ch := ocgrpc.NewClientHandler(info)
-	ch.StartOptions.Sampler = trace.AlwaysSample()
+	ch := wrapper.NewClientExtHandler(info)
+	//ch.ch.StartOptions.Sampler = trace.AlwaysSample()
 
 	var addr string
 	if *grpcServerListenAddr == "" {
@@ -99,11 +101,6 @@ func main() {
 
 	// Contact the server and print out its response.
 	name := defaultName
-	/*
-		if len(os.Args) > 1 {
-			name = os.Args[1]
-		}
-	*/
 	view.SetReportingPeriod(15 * time.Second)
 	for {
 		r, err := c.SayHello(context.Background(), &pb.HelloRequest{Name: name})

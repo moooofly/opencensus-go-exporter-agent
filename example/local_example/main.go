@@ -88,7 +88,7 @@ func main() {
 }
 
 // NOTE: update this value every time
-var index = "20180912"
+var index = "20180925"
 
 func simulate_neo_api(ctx context.Context) {
 	ctx, span := trace.StartSpan(ctx,
