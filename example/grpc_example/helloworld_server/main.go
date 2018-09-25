@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	wrapper "github.com/moooofly/ocgrpc-wrapper"
 	agent "github.com/moooofly/opencensus-go-exporter-hunter"
 	pb "go.opencensus.io/examples/grpc/proto"
 	"go.opencensus.io/plugin/ocgrpc"
@@ -125,12 +126,11 @@ func main() {
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	info := ocgrpc.NewServerCustomInfo(
+	info := wrapper.NewServerCustomInfo(
 		agent.ConfigRead(*configPath, "cluster"),
 		*hostname,
 	)
-	sh := ocgrpc.NewServerHandler(info)
-	sh.IsPublicEndpoint = false
+	sh := wrapper.NewServerExtHandler(info)
 
 	// FIXME:
 	// If remote parent (client) set with specific Sampler, server side dose not need to set again.

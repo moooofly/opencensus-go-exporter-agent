@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	wrapper "github.com/moooofly/ocgrpc-wrapper"
 	agent "github.com/moooofly/opencensus-go-exporter-hunter"
 	pb "github.com/moooofly/opencensus-go-exporter-hunter/example/callchain_example/proto"
 	"go.opencensus.io/plugin/ocgrpc"
@@ -64,15 +65,13 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 		return &pb.HelloReply{Message: "[END] Hello " + in.Name}, err
 	}
 
-	info := ocgrpc.NewClientCustomInfo(
+	info := wrapper.NewClientCustomInfo(
 		agent.ConfigRead(*configPath, "cluster"),
 		*hostname,
+		nil,
 	)
 
-	ch := ocgrpc.NewClientHandler(info)
-
-	// FIXME: is it necessary?
-	//ch.StartOptions.Sampler = trace.AlwaysSample()
+	ch := wrapper.NewClientExtHandler(info)
 
 	if strings.Index(nodes, "|") == -1 {
 		log.Printf("nodes to call: %q\n", nodes)
@@ -160,12 +159,11 @@ func main() {
 
 	// Set up a new server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	info := ocgrpc.NewServerCustomInfo(
+	info := wrapper.NewServerCustomInfo(
 		agent.ConfigRead(*configPath, "cluster"),
 		*hostname,
 	)
-	sh := ocgrpc.NewServerHandler(info)
-	sh.IsPublicEndpoint = false
+	sh := wrapper.NewServerExtHandler(info)
 
 	// FIXME:
 	// If remote parent (client) set with specific Sampler, server side dose not need to set again.
@@ -180,7 +178,7 @@ func main() {
 	}
 }
 
-func call(ctx context.Context, wg *sync.WaitGroup, addr string, ch *ocgrpc.ClientHandler, left string, in *pb.HelloRequest) {
+func call(ctx context.Context, wg *sync.WaitGroup, addr string, ch *wrapper.ClientExtHandler, left string, in *pb.HelloRequest) {
 	defer wg.Done()
 
 	conn, err := grpc.Dial(addr, grpc.WithStatsHandler(ch), grpc.WithInsecure())

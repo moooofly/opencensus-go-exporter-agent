@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	wrapper "github.com/moooofly/ocgrpc-wrapper"
 	agent "github.com/moooofly/opencensus-go-exporter-hunter"
 	pb "github.com/moooofly/opencensus-go-exporter-hunter/example/callchain_example/proto"
 	"go.opencensus.io/plugin/ocgrpc"
@@ -84,13 +85,13 @@ func main() {
 
 	// Set up a connection to the server with the OpenCensus
 	// stats handler to enable stats and tracing.
-	info := ocgrpc.NewClientCustomInfo(
+	info := wrapper.NewClientCustomInfo(
 		agent.ConfigRead(*configPath, "cluster"),
 		*hostname,
+		trace.AlwaysSample(),
 	)
 
-	ch := ocgrpc.NewClientHandler(info)
-	ch.StartOptions.Sampler = trace.AlwaysSample()
+	ch := wrapper.NewClientExtHandler(info)
 
 	// k8s service name format: hunterdemo-spider-node{1-10}
 	// parse nodes to get addrs to be called.
@@ -124,7 +125,7 @@ func main() {
 	select {}
 }
 
-func call(addr string, ch *ocgrpc.ClientHandler, left string) {
+func call(addr string, ch *wrapper.ClientExtHandler, left string) {
 	conn, err := grpc.Dial(addr, grpc.WithStatsHandler(ch), grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Cannot connect: %v", err)
