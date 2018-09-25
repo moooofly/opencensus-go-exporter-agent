@@ -9,8 +9,6 @@ import (
 )
 
 func toProtoSpan(s *trace.SpanData) *traceproto.Span {
-	//e.logger.Printf("[%s] SpanContext.TraceID: %s\n", s.Name, s.SpanContext.TraceID.String())
-	//e.logger.Printf("[%s] SpanContext.SpanID: %s\n", s.Name, s.SpanContext.SpanID.String())
 	if s == nil {
 		return nil
 	}
@@ -43,7 +41,6 @@ func toProtoSpan(s *trace.SpanData) *traceproto.Span {
 	if s.ParentSpanID != (trace.SpanID{}) {
 		sp.ParentSpanId = make([]byte, 8)
 		copy(sp.ParentSpanId, s.ParentSpanID[:])
-		//e.logger.Printf("[%s] s.ParentSpanId: %s   s.ParentSpanID: %s\n", s.Name, fmt.Sprintf("%02x", s.ParentSpanId[:]), s.ParentSpanID.String())
 	}
 
 	return sp
