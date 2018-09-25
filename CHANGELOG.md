@@ -1,3 +1,13 @@
+<a name="1.1.0"></a>
+# [1.1.0](https://github.com/moooofly/opencensus-go-exporter-hunter/compare/v1.0.0...v1.1.0) (2018-09-25)
+
+
+### Features
+
+* update codes by using ocgrpc-wrapper ([0f5d5a8](https://github.com/moooofly/opencensus-go-exporter-hunter/commit/0f5d5a8))
+
+
+
 <a name="1.0.0"></a>
 # [1.0.0](https://github.com/moooofly/opencensus-go-exporter-hunter/compare/v0.11.0...v1.0.0) (2018-09-20)
 
