@@ -1,3 +1,15 @@
+<a name="1.2.0"></a>
+# [1.2.0](https://github.com/moooofly/opencensus-go-exporter-hunter/compare/v1.1.0...v1.2.0) (2018-09-26)
+
+
+### Features
+
+* change exporter.Flush() to exporter.Stop() ([45bd923](https://github.com/moooofly/opencensus-go-exporter-hunter/commit/45bd923))
+* support package management by glide ([287c655](https://github.com/moooofly/opencensus-go-exporter-hunter/commit/287c655))
+* update Dockerfile to multi-stage since vendor support ([23a5385](https://github.com/moooofly/opencensus-go-exporter-hunter/commit/23a5385))
+
+
+
 <a name="1.1.0"></a>
 # [1.1.0](https://github.com/moooofly/opencensus-go-exporter-hunter/compare/v1.0.0...v1.1.0) (2018-09-25)
 
