@@ -1,0 +1,29 @@
+package: github.com/moooofly/opencensus-go-exporter-hunter
+import:
+- package: github.com/census-instrumentation/opencensus-proto
+  version: a7586552457eea9fa020ac37fab5f41d11e9270c
+  subpackages:
+  - gen-go/exporterproto
+  - gen-go/traceproto
+- package: github.com/golang/protobuf
+  version: ^1.2.0
+  subpackages:
+  - proto
+  - ptypes/timestamp
+- package: github.com/moooofly/ocgrpc-wrapper
+- package: go.opencensus.io
+  version: ^0.17.0
+  subpackages:
+  - examples/grpc/proto
+  - plugin/ocgrpc
+  - stats/view
+  - trace
+  - zpages
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/api
+  subpackages:
+  - support/bundler
+- package: google.golang.org/grpc
+  version: ^1.15.0

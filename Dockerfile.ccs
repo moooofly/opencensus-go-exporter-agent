@@ -1,7 +1,0 @@
-FROM alpine:3.7
-
-COPY cc_server .
-COPY config.fake .
-
-ENTRYPOINT ["/cc_server"]
-CMD ["-h"]

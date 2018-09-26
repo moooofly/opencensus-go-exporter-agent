@@ -83,7 +83,6 @@ func main() {
 	)
 
 	ch := wrapper.NewClientExtHandler(info)
-	//ch.ch.StartOptions.Sampler = trace.AlwaysSample()
 
 	var addr string
 	if *grpcServerListenAddr == "" {
